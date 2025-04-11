@@ -26,7 +26,9 @@ import {
   Database,
   Cloud,
   Smartphone,
-  Save
+  Save,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 
 const SettingsPage = () => {
