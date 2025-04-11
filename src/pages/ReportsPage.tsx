@@ -48,21 +48,22 @@ const departmentData = [
   { name: '管理', value: 120 },
 ];
 
+// Updated data to include totalWorkHours for each day
 const occupancyData = [
-  { date: '4/1', occupancy: 78, taipei: 82, hsinchu: 72 },
-  { date: '4/2', occupancy: 82, taipei: 85, hsinchu: 78 },
-  { date: '4/3', occupancy: 76, taipei: 80, hsinchu: 70 },
-  { date: '4/4', occupancy: 85, taipei: 88, hsinchu: 81 },
-  { date: '4/5', occupancy: 92, taipei: 95, hsinchu: 88 },
-  { date: '4/6', occupancy: 96, taipei: 98, hsinchu: 93 },
-  { date: '4/7', occupancy: 94, taipei: 95, hsinchu: 92 },
-  { date: '4/8', occupancy: 88, taipei: 90, hsinchu: 85 },
-  { date: '4/9', occupancy: 84, taipei: 86, hsinchu: 81 },
-  { date: '4/10', occupancy: 80, taipei: 83, hsinchu: 76 },
-  { date: '4/11', occupancy: 83, taipei: 85, hsinchu: 80 },
-  { date: '4/12', occupancy: 89, taipei: 92, hsinchu: 85 },
-  { date: '4/13', occupancy: 94, taipei: 97, hsinchu: 90 },
-  { date: '4/14', occupancy: 92, taipei: 95, hsinchu: 88 },
+  { date: '4/1', occupancy: 78, taipei: 82, hsinchu: 72, totalWorkHours: 120 },
+  { date: '4/2', occupancy: 82, taipei: 85, hsinchu: 78, totalWorkHours: 132 },
+  { date: '4/3', occupancy: 76, taipei: 80, hsinchu: 70, totalWorkHours: 124 },
+  { date: '4/4', occupancy: 85, taipei: 88, hsinchu: 81, totalWorkHours: 136 },
+  { date: '4/5', occupancy: 92, taipei: 95, hsinchu: 88, totalWorkHours: 152 },
+  { date: '4/6', occupancy: 96, taipei: 98, hsinchu: 93, totalWorkHours: 160 },
+  { date: '4/7', occupancy: 94, taipei: 95, hsinchu: 92, totalWorkHours: 156 },
+  { date: '4/8', occupancy: 88, taipei: 90, hsinchu: 85, totalWorkHours: 144 },
+  { date: '4/9', occupancy: 84, taipei: 86, hsinchu: 81, totalWorkHours: 136 },
+  { date: '4/10', occupancy: 80, taipei: 83, hsinchu: 76, totalWorkHours: 128 },
+  { date: '4/11', occupancy: 83, taipei: 85, hsinchu: 80, totalWorkHours: 132 },
+  { date: '4/12', occupancy: 89, taipei: 92, hsinchu: 85, totalWorkHours: 144 },
+  { date: '4/13', occupancy: 94, taipei: 97, hsinchu: 90, totalWorkHours: 152 },
+  { date: '4/14', occupancy: 92, taipei: 95, hsinchu: 88, totalWorkHours: 148 },
 ];
 
 const COLORS = ['#9b87f5', '#4eaaed', '#52d7b7', '#f5b455'];
@@ -145,7 +146,7 @@ const ReportsPage = () => {
                     <BarChart3 className="h-5 w-5 mr-2" />
                     住房率與人力配置
                   </CardTitle>
-                  <CardDescription>近14日住房率趨勢</CardDescription>
+                  <CardDescription>近14日住房率與總工時對比</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-80">
@@ -154,15 +155,28 @@ const ReportsPage = () => {
                         "occupancy": { color: "#9b87f5" },
                         "taipei": { color: "#4eaaed" },
                         "hsinchu": { color: "#52d7b7" },
+                        "totalWorkHours": { color: "#f5b455" },
                       }}
                     >
                       <LineChart data={occupancyData}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
-                        <YAxis />
+                        <YAxis 
+                          yAxisId="left" 
+                          orientation="left" 
+                          domain={[0, 100]} 
+                          label={{ value: '住房率 (%)', angle: -90, position: 'insideLeft' }} 
+                        />
+                        <YAxis 
+                          yAxisId="right" 
+                          orientation="right" 
+                          domain={[0, 200]} 
+                          label={{ value: '總工時 (小時)', angle: 90, position: 'insideRight' }} 
+                        />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Legend />
                         <Line
+                          yAxisId="left"
                           type="monotone"
                           dataKey="occupancy"
                           name="整體住房率"
@@ -170,8 +184,27 @@ const ReportsPage = () => {
                           activeDot={{ r: 8 }}
                           strokeWidth={2}
                         />
-                        <Line type="monotone" dataKey="taipei" name="台北館" stroke="#4eaaed" />
-                        <Line type="monotone" dataKey="hsinchu" name="新竹館" stroke="#52d7b7" />
+                        <Line 
+                          yAxisId="left" 
+                          type="monotone" 
+                          dataKey="taipei" 
+                          name="台北館" 
+                          stroke="#4eaaed" 
+                        />
+                        <Line 
+                          yAxisId="left" 
+                          type="monotone" 
+                          dataKey="hsinchu" 
+                          name="新竹館" 
+                          stroke="#52d7b7" 
+                        />
+                        <Bar 
+                          yAxisId="right" 
+                          dataKey="totalWorkHours" 
+                          name="總工時" 
+                          fill="#f5b455" 
+                          barSize={20} 
+                        />
                       </LineChart>
                     </ChartContainer>
                   </div>
@@ -216,7 +249,7 @@ const ReportsPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle>住房率與人力配置分析</CardTitle>
-                <CardDescription>住房率與排班人力對比</CardDescription>
+                <CardDescription>住房率與總工時效率對比</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-96">
@@ -225,13 +258,24 @@ const ReportsPage = () => {
                       "occupancy": { color: "#9b87f5" },
                       "taipei": { color: "#4eaaed" },
                       "hsinchu": { color: "#52d7b7" },
+                      "totalWorkHours": { color: "#f5b455" },
                     }}
                   >
                     <LineChart data={occupancyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
-                      <YAxis yAxisId="left" />
-                      <YAxis yAxisId="right" orientation="right" />
+                      <YAxis 
+                        yAxisId="left" 
+                        orientation="left" 
+                        domain={[0, 100]} 
+                        label={{ value: '住房率 (%)', angle: -90, position: 'insideLeft' }} 
+                      />
+                      <YAxis 
+                        yAxisId="right" 
+                        orientation="right" 
+                        domain={[0, 200]} 
+                        label={{ value: '總工時 (小時)', angle: 90, position: 'insideRight' }} 
+                      />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Legend />
                       <Line
@@ -243,18 +287,25 @@ const ReportsPage = () => {
                         activeDot={{ r: 8 }}
                       />
                       <Line
-                        yAxisId="right"
+                        yAxisId="left"
                         type="monotone"
                         dataKey="taipei"
                         name="台北館"
                         stroke="#4eaaed"
                       />
                       <Line
-                        yAxisId="right"
+                        yAxisId="left"
                         type="monotone"
                         dataKey="hsinchu"
                         name="新竹館"
                         stroke="#52d7b7"
+                      />
+                      <Bar 
+                        yAxisId="right" 
+                        dataKey="totalWorkHours" 
+                        name="總工時" 
+                        fill="#f5b455" 
+                        barSize={20} 
                       />
                     </LineChart>
                   </ChartContainer>
