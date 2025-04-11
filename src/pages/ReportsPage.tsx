@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -25,12 +25,17 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Calendar as CalendarIcon, 
   Download, 
   Users, 
-  BarChart3
+  BarChart3,
+  Upload,
+  Link as LinkIcon
 } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 // Sample data
 const workHoursData = [
@@ -49,7 +54,7 @@ const departmentData = [
 ];
 
 // Updated data to include totalWorkHours for each day
-const occupancyData = [
+const defaultOccupancyData = [
   { date: '4/1', occupancy: 78, taipei: 82, hsinchu: 72, totalWorkHours: 120 },
   { date: '4/2', occupancy: 82, taipei: 85, hsinchu: 78, totalWorkHours: 132 },
   { date: '4/3', occupancy: 76, taipei: 80, hsinchu: 70, totalWorkHours: 124 },
@@ -70,6 +75,139 @@ const COLORS = ['#9b87f5', '#4eaaed', '#52d7b7', '#f5b455'];
 
 const ReportsPage = () => {
   const [period, setPeriod] = useState('month');
+  const [occupancyData, setOccupancyData] = useState(defaultOccupancyData);
+  const [isUploading, setIsUploading] = useState(false);
+  const [apiUrl, setApiUrl] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const csv = e.target?.result as string;
+        const lines = csv.split('\n');
+        const headers = lines[0].split(',');
+        
+        // Validate CSV format
+        const expectedHeaders = ['date', 'occupancy', 'taipei', 'hsinchu', 'totalWorkHours'];
+        const allHeadersPresent = expectedHeaders.every(header => 
+          headers.map(h => h.trim().toLowerCase()).includes(header.toLowerCase())
+        );
+
+        if (!allHeadersPresent) {
+          throw new Error('CSV格式不正確，必須包含 date, occupancy, taipei, hsinchu, totalWorkHours 欄位');
+        }
+
+        // 將CSV轉換成數據格式
+        const newData = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i].trim() === '') continue; // 跳過空行
+          
+          const values = lines[i].split(',');
+          const row: any = {};
+          
+          headers.forEach((header, index) => {
+            const trimmedHeader = header.trim();
+            const value = values[index]?.trim() || '';
+            
+            if (trimmedHeader === 'date') {
+              row[trimmedHeader] = value;
+            } else {
+              // 轉換數值欄位
+              row[trimmedHeader] = parseFloat(value) || 0;
+            }
+          });
+          
+          newData.push(row);
+        }
+
+        setOccupancyData(newData);
+        toast({
+          title: "匯入成功",
+          description: `已成功匯入 ${newData.length} 筆資料`,
+        });
+      } catch (error) {
+        toast({
+          title: "匯入失敗",
+          description: error instanceof Error ? error.message : "CSV格式不正確",
+          variant: "destructive"
+        });
+      } finally {
+        setIsUploading(false);
+        // 重置 file input
+        if (inputRef.current) inputRef.current.value = '';
+      }
+    };
+
+    reader.onerror = () => {
+      toast({
+        title: "匯入失敗",
+        description: "無法讀取檔案",
+        variant: "destructive"
+      });
+      setIsUploading(false);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleApiImport = useCallback(async () => {
+    if (!apiUrl) {
+      toast({
+        title: "API 網址錯誤",
+        description: "請輸入有效的 API 網址",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(`API 請求失敗: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // 驗證API返回的數據格式
+      if (!Array.isArray(data)) {
+        throw new Error('API 返回的數據不是陣列格式');
+      }
+
+      const validData = data.filter(item => 
+        item.date && 
+        typeof item.occupancy === 'number' && 
+        typeof item.taipei === 'number' && 
+        typeof item.hsinchu === 'number' && 
+        typeof item.totalWorkHours === 'number'
+      );
+
+      if (validData.length === 0) {
+        throw new Error('API 返回的數據格式不正確');
+      }
+
+      setOccupancyData(validData);
+      toast({
+        title: "API 匯入成功",
+        description: `已成功匯入 ${validData.length} 筆資料`,
+      });
+    } catch (error) {
+      toast({
+        title: "API 匯入失敗",
+        description: error instanceof Error ? error.message : "無法從 API 獲取數據",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  }, [apiUrl, toast]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -96,6 +234,7 @@ const ReportsPage = () => {
             <TabsTrigger value="overview">總覽</TabsTrigger>
             <TabsTrigger value="workHours">工時統計</TabsTrigger>
             <TabsTrigger value="occupancy">住房率分析</TabsTrigger>
+            <TabsTrigger value="import">資料匯入</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="space-y-6">
@@ -158,7 +297,7 @@ const ReportsPage = () => {
                         "totalWorkHours": { color: "#f5b455" },
                       }}
                     >
-                      <LineChart data={occupancyData}>
+                      <LineChart data={occupancyData.slice(0, 11)}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="date" />
                         <YAxis 
@@ -249,7 +388,7 @@ const ReportsPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle>住房率與人力配置分析</CardTitle>
-                <CardDescription>住房率與總工時效率對比</CardDescription>
+                <CardDescription>住房率與總工時效率對比 (4/1~4/11)</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="h-96">
@@ -261,7 +400,7 @@ const ReportsPage = () => {
                       "totalWorkHours": { color: "#f5b455" },
                     }}
                   >
-                    <LineChart data={occupancyData}>
+                    <LineChart data={occupancyData.slice(0, 11)}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
                       <YAxis 
@@ -313,6 +452,111 @@ const ReportsPage = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="import" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Upload className="h-5 w-5 mr-2" />
+                    CSV 檔案匯入
+                  </CardTitle>
+                  <CardDescription>上傳 CSV 格式的住房率資料</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid w-full items-center gap-1.5">
+                      <Label htmlFor="csvFile">選擇 CSV 檔案</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          ref={inputRef}
+                          id="csvFile"
+                          type="file"
+                          accept=".csv"
+                          onChange={handleFileUpload}
+                          disabled={isUploading}
+                          className="flex-1"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        CSV 格式必須包含 date, occupancy, taipei, hsinchu, totalWorkHours 欄位
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 bg-muted/50 rounded-md">
+                      <h4 className="font-medium mb-2">CSV 格式範例</h4>
+                      <pre className="text-xs overflow-auto p-2 bg-background rounded border">
+                        date,occupancy,taipei,hsinchu,totalWorkHours<br/>
+                        4/1,78,82,72,120<br/>
+                        4/2,82,85,78,132<br/>
+                        4/3,76,80,70,124<br/>
+                        ...
+                      </pre>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <LinkIcon className="h-5 w-5 mr-2" />
+                    API 串接
+                  </CardTitle>
+                  <CardDescription>從 API 端點匯入住房率資料</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid w-full items-center gap-1.5">
+                      <Label htmlFor="apiUrl">API 網址</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="apiUrl"
+                          placeholder="https://example.com/api/occupancy-data"
+                          value={apiUrl}
+                          onChange={(e) => setApiUrl(e.target.value)}
+                          disabled={isUploading}
+                          className="flex-1"
+                        />
+                        <Button 
+                          onClick={handleApiImport} 
+                          disabled={isUploading || !apiUrl}
+                        >
+                          匯入
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        API 回傳資料必須是 JSON 陣列，每個項目必須包含 date, occupancy, taipei, hsinchu, totalWorkHours 屬性
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 bg-muted/50 rounded-md">
+                      <h4 className="font-medium mb-2">API 回傳格式範例</h4>
+                      <pre className="text-xs overflow-auto p-2 bg-background rounded border">
+                        {`[
+  {
+    "date": "4/1",
+    "occupancy": 78,
+    "taipei": 82,
+    "hsinchu": 72,
+    "totalWorkHours": 120
+  },
+  {
+    "date": "4/2",
+    "occupancy": 82,
+    "taipei": 85,
+    "hsinchu": 78,
+    "totalWorkHours": 132
+  },
+  ...
+]`}
+                      </pre>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
@@ -320,3 +564,4 @@ const ReportsPage = () => {
 };
 
 export default ReportsPage;
+
