@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Card,
@@ -27,8 +26,8 @@ import {
   Cloud,
   Smartphone,
   Save,
-  CheckCircle,
-  XCircle
+  CheckCircle,  // Added this line
+  XCircle       // Added this line
 } from 'lucide-react';
 
 const SettingsPage = () => {
